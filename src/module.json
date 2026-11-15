@@ -145,14 +145,55 @@
                 "voice_activity"
               ]
             },
+            {
+              "level": "sculpt"
+            },
+            {
+              "level": "motion"
+            }
+          ]
+        },
+        "sculpt": {
+          "knobs": [
             "world_a",
             "world_b",
-            "mode",
             "morph",
+            "tone",
+            "space",
+            "level",
+            "chaos",
+            "generation"
+          ],
+          "params": [
+            "world_a",
+            "world_b",
+            "morph",
+            "tone",
+            "space",
+            "level",
+            "chaos",
+            "generation"
+          ]
+        },
+        "motion": {
+          "knobs": [
             "evolution",
             "chaos",
             "generation",
+            "freeze",
             "space",
+            "tone",
+            "morph",
+            "level"
+          ],
+          "params": [
+            "evolution",
+            "chaos",
+            "generation",
+            "freeze",
+            "space",
+            "tone",
+            "morph",
             "level"
           ]
         }
