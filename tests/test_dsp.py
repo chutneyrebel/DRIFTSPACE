@@ -68,6 +68,14 @@ with tempfile.TemporaryDirectory() as d:
         samples=audio(8)
         fingerprints.append(tuple(samples[::64]))
     assert len(set(fingerprints))==4, 'world outputs must differ'
+    # Phase 5: generative satellites are bounded and do not create MIDI voices.
+    setp('generation',100);setp('chaos',100)
+    generated=audio(200)
+    assert any(generated) and max(abs(x) for x in generated)<=32767
+    assert getp('voice_activity')=='1'
+    setp('freeze',1)
+    assert any(audio(32))
+    setp('freeze',0);setp('generation',0)
     setp('mode',1)
     assert getp('mode')=='1'
     for position in (0,16,33,34,50,66,67,84,100):
