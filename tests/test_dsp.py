@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Host-side ABI, audio and MIDI smoke test. Not a Move hardware test."""
+import ctypes as C
+import json
+from pathlib import Path
+import subprocess
+import tempfile
+import math
+ROOT=Path(__file__).resolve().parents[1]
+meta=json.loads((ROOT/'src/module.json').read_text())
+assert len((ROOT/'src/module.json').read_bytes())<8192
+assert meta['api_version']==2 and meta['id']=='driftspace'
+with tempfile.TemporaryDirectory() as d:
+    so=str(Path(d)/'dsp.so')
+    subprocess.run(['cc','-std=c11','-O2','-shared','-fPIC','-ffreestanding','-fvisibility=hidden',str(ROOT/'src/dsp.c'),'-o',so],check=True)
+    CREATE=C.CFUNCTYPE(C.c_void_p,C.c_char_p,C.c_char_p)
+    DESTROY=C.CFUNCTYPE(None,C.c_void_p)
+    MIDI=C.CFUNCTYPE(None,C.c_void_p,C.POINTER(C.c_uint8),C.c_int,C.c_int)
+    SET=C.CFUNCTYPE(None,C.c_void_p,C.c_char_p,C.c_char_p)
+    GET=C.CFUNCTYPE(C.c_int,C.c_void_p,C.c_char_p,C.c_char_p,C.c_int)
+    RENDER=C.CFUNCTYPE(None,C.c_void_p,C.POINTER(C.c_int16),C.c_int)
+    class API(C.Structure):
+        _fields_=[('version',C.c_uint32),('create',CREATE),('destroy',DESTROY),('midi',MIDI),('set',SET),('get',GET),('error',GET),('render',RENDER)]
+    lib=C.CDLL(so)
+    lib.move_plugin_init_v2.argtypes=[C.c_void_p]
+    lib.move_plugin_init_v2.restype=C.POINTER(API)
+    api=lib.move_plugin_init_v2(None).contents
+    assert api.version==2
+    instance=api.create(b'.',None)
+    assert instance
+    def send(st,n,v):
+        msg=(C.c_uint8*3)(st,n,v)
+        api.midi(instance,msg,3,0)
+    def setp(k,v):api.set(instance,k.encode(),str(v).encode())
+    def getp(k):
+        b=C.create_string_buffer(128)
+        assert api.get(instance,k.encode(),b,128)>=0
+        return b.value.decode()
+    def audio(blocks=16):
+        b=(C.c_int16*256)()
+        samples=[]
+        for _ in range(blocks):
+            api.render(instance,b,128)
+            samples.extend(b)
+        return samples
+    assert not any(audio())
+    send(0x90,60,110)
+    assert getp('voice_activity')=='1'
+    initial=audio()
+    assert any(initial) and max(abs(x) for x in initial)<=32767
+    assert any(x<0 for x in initial) and any(x>0 for x in initial)
+    for w in range(4):
+        setp('world_a',w);setp('world_b',(w+1)%4);setp('morph',50)
+        samples=audio(8)
+        assert any(samples)
+        assert max(abs(x) for x in samples)<=32767
+    setp('morph',999)
+    assert getp('morph')=='100'
+    setp('freeze',1)
+    assert getp('freeze')=='1'
+    send(0x80,60,0)
+    audio(160)
+    assert getp('voice_activity')=='0'
+    send(0x90,64,100)
+    send(0xB0,123,0)
+    assert getp('voice_activity')=='0'
+    api.destroy(instance)
+print('PASS: v2 ABI, metadata, four worlds, bipolar audio, morph, clamping, freeze, note-off, panic')
