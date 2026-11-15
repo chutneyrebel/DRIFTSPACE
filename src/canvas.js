@@ -17,15 +17,17 @@ function line(ctx,x,y,w,h,fn){
 function render(ctx,o){
  const v=o&&o.values||{},W=ctx.width||128,H=ctx.height||40;
  if(W<40||H<24)return;
- const a=clamp(v.world_a??0,0,3)|0,b=clamp(v.world_b??1,0,3)|0;
- const morph=val(v,"morph",0)/100, evo=val(v,"evolution",25)/100;
+ let a=clamp(v.world_a??0,0,3)|0,b=clamp(v.world_b??1,0,3)|0;
+ let morph=val(v,"morph",0)/100; const journey=(v.mode|0)===1;
+ if(journey){const position=morph*3;a=Math.min(2,Math.floor(position));b=a+1;morph=Math.min(1,position-a);}
+ const evo=val(v,"evolution",25)/100;
  const chaos=val(v,"chaos",0)/100,voices=clamp(v.voice_activity??0,0,4);
  const now=o&&o.nowMs;
  const time=(typeof now==="number"&&Number.isFinite(now)?now/1000:frame++/11);
  const t=voices?time*(.13+.6*evo):0;
  const names=["FLUID","ORGANISM","DRIFTSPACE","BLOOM"];
  ctx.fillRect(0,0,W,H,0);
- ctx.print(2,1,names[a],1);
+ ctx.print(2,1,journey?"J "+names[a]:names[a],1);
  ctx.print(Math.max(2,W-8-names[b].length*6),1,names[b],1);
  const top=11,ht=Math.max(12,H-23),w=W-6;
  function wave(world,u){
