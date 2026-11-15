@@ -34,6 +34,15 @@
         "default": 1
       },
       {
+        "key": "mode",
+        "type": "enum",
+        "options": [
+          "FREE PAIR",
+          "JOURNEY"
+        ],
+        "default": 0
+      },
+      {
         "key": "morph",
         "type": "int",
         "min": 0,
@@ -117,11 +126,11 @@
           "knobs": [
             "world_a",
             "world_b",
+            "mode",
             "morph",
             "evolution",
             "chaos",
             "generation",
-            "space",
             "level"
           ],
           "params": [
@@ -138,6 +147,7 @@
             },
             "world_a",
             "world_b",
+            "mode",
             "morph",
             "evolution",
             "chaos",
