@@ -18,10 +18,10 @@ typedef struct {
  int (*get_error)(void *,char *,int);
  void (*render_block)(void *,int16_t *,int);
 } plugin_api_v2_t;
-typedef struct {float phase,env,velocity;int note,active,held;} Voice;
+typedef struct {float phase,env,velocity,generated_phase,generated_gain;int note,active,held;} Voice;
 typedef struct {
  Voice voices[VOICES]; int world_a,world_b,morph,evolution,chaos,generation,space,tone,level;
- int freeze,mode,seed;float smooth_morph,slow_phase,slow_secondary,organic,random_target,random_current;uint32_t rng;unsigned tick;
+ int freeze,mode,seed;float smooth_morph,slow_phase,slow_secondary,organic,random_target,random_current;uint32_t rng;unsigned tick,gen_tick;int gen_interval;float gen_gate;
 } Synth;
 typedef struct {int used;Synth synth;} Slot;
 static Slot slots[INSTANCES];
@@ -31,8 +31,8 @@ static int clamp(int v,int lo,int hi){return v<lo?lo:v>hi?hi:v;}
 static float absf(float v){return v<0?-v:v;}
 static float wrap(float x){while(x>=1.f)x-=1.f;while(x<0.f)x+=1.f;return x;}
 static float sine(float x){/* fast bounded polynomial approximation, input cycles */
- x=wrap(x);float t=x<.5f?x*4.f:4.f*x-4.f;
- return t*(1.27323954f-.405284735f*absf(t));}
+ x=wrap(x);float t=x<.5f?x*2.f:2.f*x-2.f;
+ return 4.f*t*(1.f-absf(t));}
 static float frequency(int n){/* 12-TET semitone ratio table, A4=440 */
  static const float ratios[12]={1.f,1.0594631f,1.122462f,1.1892071f,1.259921f,1.3348399f,1.41421356f,1.498307f,1.587401f,1.6817928f,1.7817974f,1.8877486f};
  int delta=n-69,oct=0;while(delta<0){delta+=12;oct--;}while(delta>=12){delta-=12;oct++;}
@@ -111,6 +111,17 @@ static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(f
   s->random_target=((float)(s->rng&65535u)/32767.5f)-1.f;
  }
  if(!s->freeze)s->random_current+=.00012f*(s->random_target-s->random_current);
+ /* Note-aware harmonic satellites: a quiet, gated secondary oscillator
+  * per held voice. Root notes remain unchanged; no emitted MIDI events.
+  * Frozen state holds pattern and gate; phase continues for uninterrupted audio. */
+ if(!s->freeze && s->generation>0 && ++s->gen_tick >= (unsigned)(22050-150*s->evolution)){
+  static const int musical_intervals[7]={0,7,12,4,9,16,19};
+  s->gen_tick=0;
+  s->rng^=s->rng<<13;s->rng^=s->rng>>17;s->rng^=s->rng<<5;
+  int spread=1+s->chaos*6/100;
+  s->gen_interval=musical_intervals[(s->rng>>8)%(unsigned)spread];
+  s->gen_gate=((s->rng>>17)%100u)<(unsigned)s->generation?1.f:0.f;
+ }
  float slow=sine(s->slow_phase),slow2=sine(s->slow_secondary);
  float organic=s->random_current*((float)s->chaos*.01f)*(.25f+.75f*(float)s->evolution*.01f);
  float journey=s->smooth_morph*3.f;
@@ -129,6 +140,12 @@ static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(f
  float target=v->held?1.f:0.f;v->env+=(target-v->env)*(v->held?.002f:.0007f);
  if(!v->held&&v->env<.0005f){v->active=0;continue;}
  float sample=mixed*evolve*gain*v->env;
+ if(s->generation>0 && v->held){
+  float target_gen=s->gen_gate*((float)s->generation*.01f)*.28f;
+  v->generated_gain+=(target_gen-v->generated_gain)*.00035f;
+  v->generated_phase=wrap(v->generated_phase+frequency(clamp(v->note+s->gen_interval,0,127))/SR);
+  sample+=sine(v->generated_phase)*v->generated_gain*gain*v->env;
+ }else v->generated_gain*=.99965f;
  float pan=(float)s->space*.01f*.3f*slow;
  l+=sample*(1.f-pan);r+=sample*(1.f+pan);
  }
