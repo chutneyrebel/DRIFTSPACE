@@ -58,7 +58,12 @@ static void set(void*p,const char*k,const char*v){if(!p||!k||!v)return;Synth*s=p
  if(eq(k,"panic")){for(int i=0;i<VOICES;i++)s->voices[i].active=0;return;}
  for(unsigned i=0;i<sizeof(params)/sizeof(params[0]);i++)if(eq(k,params[i].name)){int x=clamp(num(v),0,params[i].max);*(int*)((char*)s+params[i].offset)=x;if(eq(k,"seed"))s->rng=(uint32_t)(x?x:1);return;}
 }
-static int get(void*p,const char*k,char*b,int cap){if(eq(k,"module_id"))return literal(b,cap,"driftspace");if(!p||!k)return -1;Synth*s=p;
+static const char chain_params_json[]="[{\"key\":\"world_a\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":0},{\"key\":\"world_b\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":1},{\"key\":\"morph\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"evolution\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":25},{\"key\":\"chaos\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"generation\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"space\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"tone\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"level\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":60},{\"key\":\"freeze\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":0}]";
+static const char ui_hierarchy_json[]="{\"levels\":{\"root\":{\"knobs\":[\"world_a\",\"world_b\",\"morph\",\"evolution\",\"chaos\",\"generation\",\"space\",\"level\"],\"params\":[\"world_a\",\"world_b\",\"morph\",\"evolution\",\"chaos\",\"generation\",\"space\",\"level\"]}}}";
+static int get(void*p,const char*k,char*b,int cap){
+ if(eq(k,"chain_params"))return literal(b,cap,chain_params_json);
+ if(eq(k,"ui_hierarchy"))return literal(b,cap,ui_hierarchy_json);
+ if(eq(k,"module_id"))return literal(b,cap,"driftspace");if(!p||!k)return -1;Synth*s=p;
  for(unsigned i=0;i<sizeof(params)/sizeof(params[0]);i++)if(eq(k,params[i].name))return put(b,cap,*(int*)((char*)s+params[i].offset));
  if(eq(k,"voice_activity")){int n=0;for(int i=0;i<VOICES;i++)n+=s->voices[i].active;return put(b,cap,n);}
  return -1;
