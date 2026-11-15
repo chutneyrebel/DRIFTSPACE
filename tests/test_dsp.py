@@ -59,6 +59,15 @@ with tempfile.TemporaryDirectory() as d:
         samples=audio(8)
         assert any(samples)
         assert max(abs(x) for x in samples)<=32767
+    setp('mode',1)
+    assert getp('mode')=='1'
+    for position in (0,16,33,34,50,66,67,84,100):
+        setp('morph',position)
+        samples=audio(8)
+        assert any(samples)
+        assert max(abs(x) for x in samples)<=32767
+    setp('mode',0)
+    assert getp('mode')=='0'
     setp('morph',999)
     assert getp('morph')=='100'
     setp('freeze',1)
