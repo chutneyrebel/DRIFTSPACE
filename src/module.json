@@ -1,0 +1,203 @@
+{
+  "id": "driftspace",
+  "name": "DRIFTSPACE",
+  "version": "0.1.0-dev",
+  "author": "Shrook",
+  "api_version": 2,
+  "dsp": "dsp.so",
+  "capabilities": {
+    "audio_out": true,
+    "midi_in": true,
+    "chainable": true,
+    "component_type": "sound_generator",
+    "chain_params": [
+      {
+        "key": "world_a",
+        "type": "enum",
+        "options": [
+          "FLUID",
+          "ORGANISM",
+          "DRIFTSPACE",
+          "BLOOM"
+        ],
+        "default": 0
+      },
+      {
+        "key": "world_b",
+        "type": "enum",
+        "options": [
+          "FLUID",
+          "ORGANISM",
+          "DRIFTSPACE",
+          "BLOOM"
+        ],
+        "default": 1
+      },
+      {
+        "key": "mode",
+        "type": "enum",
+        "options": [
+          "FREE PAIR",
+          "JOURNEY"
+        ],
+        "default": 0
+      },
+      {
+        "key": "morph",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "default": 50
+      },
+      {
+        "key": "evolution",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "default": 25
+      },
+      {
+        "key": "chaos",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "default": 0
+      },
+      {
+        "key": "generation",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "default": 0
+      },
+      {
+        "key": "space",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "default": 0
+      },
+      {
+        "key": "tone",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "default": 50
+      },
+      {
+        "key": "level",
+        "type": "int",
+        "min": 0,
+        "max": 100,
+        "default": 60
+      },
+      {
+        "key": "freeze",
+        "type": "enum",
+        "options": [
+          "Off",
+          "On"
+        ],
+        "default": 0
+      },
+      {
+        "key": "face",
+        "type": "canvas",
+        "canvas_script": "canvas.js",
+        "canvas_overlay": "driftspace_main",
+        "as_page": true,
+        "page_first": true,
+        "show_value": false,
+        "extra_keys": [
+          "voice_activity"
+        ]
+      },
+      {
+        "key": "voice_activity",
+        "type": "int",
+        "min": 0,
+        "max": 4,
+        "access": "read"
+      }
+    ],
+    "ui_hierarchy": {
+      "levels": {
+        "root": {
+          "knobs": [
+            "world_a",
+            "world_b",
+            "mode",
+            "morph",
+            "evolution",
+            "chaos",
+            "generation",
+            "level"
+          ],
+          "params": [
+            {
+              "key": "face",
+              "type": "canvas",
+              "canvas_script": "canvas.js",
+              "canvas_overlay": "driftspace_main",
+              "as_page": true,
+              "page_first": true,
+              "extra_keys": [
+                "voice_activity"
+              ]
+            },
+            {
+              "level": "sculpt"
+            },
+            {
+              "level": "motion"
+            }
+          ]
+        },
+        "sculpt": {
+          "knobs": [
+            "world_a",
+            "world_b",
+            "morph",
+            "tone",
+            "space",
+            "level",
+            "chaos",
+            "generation"
+          ],
+          "params": [
+            "world_a",
+            "world_b",
+            "morph",
+            "tone",
+            "space",
+            "level",
+            "chaos",
+            "generation"
+          ]
+        },
+        "motion": {
+          "knobs": [
+            "evolution",
+            "chaos",
+            "generation",
+            "freeze",
+            "space",
+            "tone",
+            "morph",
+            "level"
+          ],
+          "params": [
+            "evolution",
+            "chaos",
+            "generation",
+            "freeze",
+            "space",
+            "tone",
+            "morph",
+            "level"
+          ]
+        }
+      }
+    }
+  }
+}

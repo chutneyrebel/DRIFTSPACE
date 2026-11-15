@@ -1,0 +1,30 @@
+name: Phase 1 prototype CI
+on:
+  push:
+    branches: [phase1-audio-prototype]
+  pull_request:
+jobs:
+  host-dsp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run host DSP smoke test
+        run: python3 tests/test_dsp.py
+  canvas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check canvas JS
+        run: node tests/test_canvas.cjs
+  aarch64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang lld binutils
+      - name: Cross-compile and package
+        run: bash scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: driftspace-experimental-module
+          path: dist/driftspace-module.tar.gz
