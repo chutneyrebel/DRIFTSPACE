@@ -10,6 +10,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run host DSP smoke test
         run: python3 tests/test_dsp.py
+  canvas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check canvas JS
+        run: node tests/test_canvas.cjs
   aarch64:
     runs-on: ubuntu-latest
     steps:
