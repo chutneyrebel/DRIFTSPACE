@@ -7,5 +7,5 @@ CC="${CC:-clang}"
 readelf -h build/dsp.so | grep -q AArch64
 nm -D build/dsp.so | grep -q move_plugin_init_v2
 ! readelf -d build/dsp.so | grep -q NEEDED
-cp build/dsp.so src/module.json dist/driftspace/
+cp build/dsp.so src/module.json src/canvas.js dist/driftspace/
 tar -C dist -czf dist/driftspace-module.tar.gz driftspace
