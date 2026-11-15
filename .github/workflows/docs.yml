@@ -1,0 +1,17 @@
+name: Phase 0 documentation checks
+on:
+  push:
+    branches: [main, phase0-spec-compatibility]
+  pull_request:
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required Phase 0 files
+        run: |
+          set -eu
+          for file in README.md docs/SPECIFICATION.md docs/ARCHITECTURE.md docs/COMPATIBILITY.md docs/RISK_REGISTER.md docs/PHASE0_PLAN.md; do
+            test -s "$file" || { echo "Missing or empty: $file"; exit 1; }
+          done
+          echo "Phase 0 documentation files present"
