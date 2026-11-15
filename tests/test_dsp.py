@@ -26,6 +26,11 @@ with tempfile.TemporaryDirectory() as d:
     lib.move_plugin_init_v2.restype=C.POINTER(API)
     api=lib.move_plugin_init_v2(None).contents
     assert api.version==2
+    for key in ('chain_params','ui_hierarchy'):
+        buf=C.create_string_buffer(8192)
+        assert api.get(None,key.encode(),buf,8192)>0
+        live=json.loads(buf.value)
+        assert live==meta['capabilities'][key],(key,'metadata mismatch')
     instance=api.create(b'.',None)
     assert instance
     def send(st,n,v):
