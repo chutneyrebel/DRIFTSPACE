@@ -31,7 +31,7 @@ static int clamp(int v,int lo,int hi){return v<lo?lo:v>hi?hi:v;}
 static float absf(float v){return v<0?-v:v;}
 static float wrap(float x){while(x>=1.f)x-=1.f;while(x<0.f)x+=1.f;return x;}
 static float sine(float x){/* fast bounded polynomial approximation, input cycles */
- x=wrap(x);float t=x<.5f?x*4.f:4.f-4.f*x;
+ x=wrap(x);float t=x<.5f?x*4.f:4.f*x-4.f;
  return t*(1.27323954f-.405284735f*absf(t));}
 static float frequency(int n){/* 12-TET semitone ratio table, A4=440 */
  static const float ratios[12]={1.f,1.0594631f,1.122462f,1.1892071f,1.259921f,1.3348399f,1.41421356f,1.498307f,1.587401f,1.6817928f,1.7817974f,1.8877486f};
@@ -66,10 +66,11 @@ static int get(void*p,const char*k,char*b,int cap){if(eq(k,"module_id"))return l
 static int error(void*p,char*b,int n){(void)p;return literal(b,n,"");}
 static float world(int w,float ph,float slow,float chaos,float tone){
  float a=sine(ph),b=sine(ph*2.f),c=sine(ph*3.f);
- if(w==0)return .65f*sine(ph+.05f*slow*b)+.22f*b+.1f*c; /* FLUID */
- if(w==1)return .60f*a+.20f*sine(ph*1.002f+slow*.12f)+.12f*c*(.5f+.5f*slow); /* ORGANISM */
- if(w==2)return .46f*a+.20f*sine(ph*2.f+slow*.3f)+.13f*sine(ph*5.f+slow*.15f); /* DRIFTSPACE */
- return .50f*a+.18f*b+.14f*sine(ph*4.f+slow*.22f)+.07f*sine(ph*7.f); /* BLOOM */
+ float bright=.5f+.5f*tone,distort=.02f*chaos*sine(ph*9.f+slow*.2f);
+ if(w==0)return .65f*sine(ph+.05f*slow*b)+bright*.22f*b+.1f*c+distort; /* FLUID */
+ if(w==1)return .60f*a+.20f*sine(ph*1.002f+slow*.12f)+bright*.12f*c*(.5f+.5f*slow)+distort; /* ORGANISM */
+ if(w==2)return .46f*a+bright*.20f*sine(ph*2.f+slow*.3f)+.13f*sine(ph*5.f+slow*.15f)+distort; /* DRIFTSPACE */
+ return .50f*a+bright*.18f*b+.14f*sine(ph*4.f+slow*.22f)+.07f*sine(ph*7.f)+distort; /* BLOOM */
 }
 static int16_t pcm(float v){if(v>1.f)v=1.f;if(v< -1.f)v=-1.f;return (int16_t)(v*32767.f);}
 static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(frames>128)frames=128;Synth*s=p;
