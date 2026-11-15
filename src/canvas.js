@@ -10,7 +10,7 @@ function line(ctx,x,y,w,h,fn){
  let last=0;
  for(let i=0;i<w;i++){
   const y0=Math.max(0,Math.min(h-1,Math.round(h*.5-fn(i/w)*(h*.43))));
-  if(i)ctx.drawLine(x+i-1,y+last,x+i,y+y0,1);
+  if(i)ctx.line(x+i-1,y+last,x+i,y+y0,1);
   last=y0;
  }
 }
@@ -43,9 +43,9 @@ function render(ctx,o){
  for(let i=0;i<7;i++){
   const x=7+i*Math.floor((W-14)/7),y=top+2+(i*7)%(Math.max(5,ht-4));
   if(active===0)ctx.fillRect(x,y,2,2,1);
-  else if(active===1)ctx.drawCircle(x,y,2+(i%2),1);
-  else if(active===2){ctx.drawLine(x-2,y,x+2,y,1);ctx.drawLine(x,y-2,x,y+2,1);}
-  else ctx.drawCircle(x,y,1+(i%3),1);
+  else if(active===1)ctx.fillRect(x-2,y-2,4+(i%2),4+(i%2),1);
+  else if(active===2){ctx.line(x-2,y,x+2,y,1);ctx.line(x,y-2,x,y+2,1);}
+  else ctx.fillRect(x-1,y-1,2+(i%3),2+(i%3),1);
  }
  const meterY=H-8,barW=W-8;
  ctx.fillRect(4,meterY,barW,3,0);
