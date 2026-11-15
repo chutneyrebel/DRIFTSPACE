@@ -59,6 +59,15 @@ with tempfile.TemporaryDirectory() as d:
         samples=audio(8)
         assert any(samples)
         assert max(abs(x) for x in samples)<=32767
+    # Phase 4: verify that each world is audible and timbrally distinguishable.
+    setp('mode',0);setp('morph',0);setp('chaos',80);setp('evolution',90)
+    fingerprints=[]
+    for w in range(4):
+        setp('world_a',w)
+        audio(8)  # settle morph and discard transient
+        samples=audio(8)
+        fingerprints.append(tuple(samples[::64]))
+    assert len(set(fingerprints))==4, 'world outputs must differ'
     setp('mode',1)
     assert getp('mode')=='1'
     for position in (0,16,33,34,50,66,67,84,100):
