@@ -40,7 +40,7 @@ static float frequency(int n){/* 12-TET semitone ratio table, A4=440 */
 }
 static int put(char*b,int cap,int v){if(!b||cap<2)return -1;char tmp[16];int n=0;if(v<0)v=0;do{tmp[n++]=(char)('0'+v%10);v/=10;}while(v&&n<15);if(n>=cap)return -1;for(int i=0;i<n;i++)b[i]=tmp[n-i-1];b[n]=0;return n;}
 static int literal(char*b,int cap,const char*s){int n=0;if(!b||cap<1)return -1;while(s[n]){if(n>=cap-1)return -1;b[n]=s[n];n++;}b[n]=0;return n;}
-static void reset(Synth*s){*s=(Synth){0};s->world_b=1;s->evolution=25;s->tone=50;s->level=60;s->seed=1;s->rng=1;}
+static void reset(Synth*s){*s=(Synth){0};s->world_b=1;s->morph=50;s->smooth_morph=.5f;s->evolution=25;s->tone=50;s->level=60;s->seed=1;s->rng=1;}
 static void *create(const char*d,const char*j){(void)d;(void)j;for(int i=0;i<INSTANCES;i++){int z=0;if(__atomic_compare_exchange_n(&slots[i].used,&z,1,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE)){reset(&slots[i].synth);return &slots[i].synth;}}return 0;}
 static void destroy(void*p){for(int i=0;i<INSTANCES;i++)if(p==&slots[i].synth){__atomic_store_n(&slots[i].used,0,__ATOMIC_RELEASE);return;}}
 static void midi(void*p,const uint8_t*m,int n,int source){if(!p||!m||n<3||source==5)return;Synth*s=p;int kind=m[0]&240;
@@ -58,7 +58,7 @@ static void set(void*p,const char*k,const char*v){if(!p||!k||!v)return;Synth*s=p
  if(eq(k,"panic")){for(int i=0;i<VOICES;i++)s->voices[i].active=0;return;}
  for(unsigned i=0;i<sizeof(params)/sizeof(params[0]);i++)if(eq(k,params[i].name)){int x=clamp(num(v),0,params[i].max);*(int*)((char*)s+params[i].offset)=x;if(eq(k,"seed"))s->rng=(uint32_t)(x?x:1);return;}
 }
-static const char chain_params_json[]="[{\"key\":\"world_a\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":0},{\"key\":\"world_b\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":1},{\"key\":\"mode\",\"type\":\"enum\",\"options\":[\"FREE PAIR\",\"JOURNEY\"],\"default\":0},{\"key\":\"morph\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"evolution\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":25},{\"key\":\"chaos\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"generation\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"space\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"tone\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"level\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":60},{\"key\":\"freeze\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":0},{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"show_value\":false,\"extra_keys\":[\"voice_activity\"]},{\"key\":\"voice_activity\",\"type\":\"int\",\"min\":0,\"max\":4,\"access\":\"read\"}]";
+static const char chain_params_json[]="[{\"key\":\"world_a\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":0},{\"key\":\"world_b\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":1},{\"key\":\"mode\",\"type\":\"enum\",\"options\":[\"FREE PAIR\",\"JOURNEY\"],\"default\":0},{\"key\":\"morph\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"evolution\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":25},{\"key\":\"chaos\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"generation\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"space\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"tone\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"level\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":60},{\"key\":\"freeze\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":0},{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"show_value\":false,\"extra_keys\":[\"voice_activity\"]},{\"key\":\"voice_activity\",\"type\":\"int\",\"min\":0,\"max\":4,\"access\":\"read\"}]";
 static const char ui_hierarchy_json[]="{\"levels\":{\"root\":{\"knobs\":[\"world_a\",\"world_b\",\"mode\",\"morph\",\"evolution\",\"chaos\",\"generation\",\"level\"],\"params\":[{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"extra_keys\":[\"voice_activity\"]},{\"level\":\"sculpt\"},{\"level\":\"motion\"}]},\"sculpt\":{\"knobs\":[\"world_a\",\"world_b\",\"morph\",\"tone\",\"space\",\"level\",\"chaos\",\"generation\"],\"params\":[\"world_a\",\"world_b\",\"morph\",\"tone\",\"space\",\"level\",\"chaos\",\"generation\"]},\"motion\":{\"knobs\":[\"evolution\",\"chaos\",\"generation\",\"freeze\",\"space\",\"tone\",\"morph\",\"level\"],\"params\":[\"evolution\",\"chaos\",\"generation\",\"freeze\",\"space\",\"tone\",\"morph\",\"level\"]}}}";
 static int get(void*p,const char*k,char*b,int cap){
  if(eq(k,"chain_params"))return literal(b,cap,chain_params_json);
@@ -101,7 +101,7 @@ static int16_t pcm(float v){if(v>1.f)v=1.f;if(v< -1.f)v=-1.f;return (int16_t)(v*
 static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(frames>128)frames=128;Synth*s=p;
  if(!s){for(int j=0;j<frames*2;j++)out[j]=0;return;}
  for(int j=0;j<frames;j++){
- s->smooth_morph+=.0015f*((float)s->morph*.01f-s->smooth_morph);
+ s->smooth_morph+=.004f*((float)s->morph*.01f-s->smooth_morph);
  if(!s->freeze){s->slow_phase=wrap(s->slow_phase+(0.03f+.0008f*s->evolution)/SR);s->slow_secondary=wrap(s->slow_secondary+(.013f+.0002f*s->evolution)/SR);}
  /* Advance bounded pseudo-random target every 1024 samples.
   * Freeze holds both periodic and stochastic evolution. */
@@ -134,19 +134,23 @@ static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(f
  float hz=frequency(v->note);v->phase=wrap(v->phase+hz/SR);
  float x=world(wa,v->phase,slow,slow2,(float)s->chaos*.01f,(float)s->tone*.01f,organic);
  float y=world(wb,v->phase,slow2,slow,(float)s->chaos*.01f,(float)s->tone*.01f,organic);
- float mixed=x+(y-x)*wm;
+ /* Smoothstep crossfade reduces sudden coloration around the midpoint. */
+ float blend=wm*wm*(3.f-2.f*wm);
+ float mixed=x*(1.f-blend)+y*blend;
  float evolve=1.f+.06f*slow*((float)s->evolution*.01f);
  float gain=(float)s->level*.01f*.28f*v->velocity;
  float target=v->held?1.f:0.f;v->env+=(target-v->env)*(v->held?.002f:.0007f);
  if(!v->held&&v->env<.0005f){v->active=0;continue;}
  float sample=mixed*evolve*gain*v->env;
  if(s->generation>0 && v->held){
-  float target_gen=s->gen_gate*((float)s->generation*.01f)*.28f;
+  float target_gen=s->gen_gate*((float)s->generation*.01f)*.85f;
   v->generated_gain+=(target_gen-v->generated_gain)*.00035f;
   v->generated_phase=wrap(v->generated_phase+frequency(clamp(v->note+s->gen_interval,0,127))/SR);
   sample+=sine(v->generated_phase)*v->generated_gain*gain*v->env;
  }else v->generated_gain*=.99965f;
- float pan=(float)s->space*.01f*.3f*slow;
+ /* SPACE controls stereo width directly and adds slow opposing movement. */
+ float width=(float)s->space*.01f;
+ float pan=width*(.50f+.35f*slow2);
  l+=sample*(1.f-pan);r+=sample*(1.f+pan);
  }
  out[j*2]=pcm(l);out[j*2+1]=pcm(r);
