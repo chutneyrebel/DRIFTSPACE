@@ -21,7 +21,7 @@ typedef struct {
 typedef struct {float phase,env,velocity;int note,active,held;} Voice;
 typedef struct {
  Voice voices[VOICES]; int world_a,world_b,morph,evolution,chaos,generation,space,tone,level;
- int freeze,mode,seed;float smooth_morph,slow_phase,slow_secondary;uint32_t rng;
+ int freeze,mode,seed;float smooth_morph,slow_phase,slow_secondary,organic,random_target,random_current;uint32_t rng;unsigned tick;
 } Synth;
 typedef struct {int used;Synth synth;} Slot;
 static Slot slots[INSTANCES];
@@ -69,13 +69,33 @@ static int get(void*p,const char*k,char*b,int cap){
  return -1;
 }
 static int error(void*p,char*b,int n){(void)p;return literal(b,n,"");}
-static float world(int w,float ph,float slow,float chaos,float tone){
- float a=sine(ph),b=sine(ph*2.f),c=sine(ph*3.f);
- float bright=.5f+.5f*tone,distort=.02f*chaos*sine(ph*9.f+slow*.2f);
- if(w==0)return .65f*sine(ph+.05f*slow*b)+bright*.22f*b+.1f*c+distort; /* FLUID */
- if(w==1)return .60f*a+.20f*sine(ph*1.002f+slow*.12f)+bright*.12f*c*(.5f+.5f*slow)+distort; /* ORGANISM */
- if(w==2)return .46f*a+bright*.20f*sine(ph*2.f+slow*.3f)+.13f*sine(ph*5.f+slow*.15f)+distort; /* DRIFTSPACE */
- return .50f*a+bright*.18f*b+.14f*sine(ph*4.f+slow*.22f)+.07f*sine(ph*7.f)+distort; /* BLOOM */
+/* Phase 4: four lightweight but genuinely different synthesis behaviors.
+ * Deterministic stochastic modulation advances at control rate, not per sample. */
+static float world(int w,float ph,float slow,float slow2,float chaos,float tone,float organic){
+ float bright=.35f+.65f*tone;
+ if(w==0){ /* FLUID: phase-bent harmonic flow */
+  float bend=.045f*(1.f+chaos)*slow2;
+  return .60f*sine(ph+bend*sine(ph*2.f))+
+         .24f*bright*sine(ph*2.f+.08f*slow)+.10f*sine(ph*3.f+.12f*slow2);
+ }
+ if(w==1){ /* ORGANISM: stochastic timbre with coupled modulators */
+  float living=.45f*organic+.35f*slow2+.20f*slow;
+  return .56f*sine(ph+.018f*living)+
+         (.12f+.19f*bright)*sine(ph*3.f+.1f*living)+
+         (.06f+.10f*chaos)*sine(ph*7.f+.2f*organic);
+ }
+ if(w==2){ /* DRIFTSPACE: inharmonic drifting partials */
+  return .45f*sine(ph)+
+         .23f*bright*sine(ph*2.003f+.13f*slow)+
+         .16f*sine(ph*4.009f+.20f*slow2)+
+         .08f*chaos*sine(ph*6.017f+.1f*organic);
+ }
+ /* BLOOM: branching harmonics, movement biased toward upper partials */
+ float branch=.5f+.5f*slow2;
+ return .43f*sine(ph)+
+        .20f*bright*sine(ph*2.f)+
+        (.07f+.15f*branch)*sine(ph*4.f+.08f*slow)+
+        (.04f+.10f*chaos)*sine(ph*7.f+.10f*organic);
 }
 static int16_t pcm(float v){if(v>1.f)v=1.f;if(v< -1.f)v=-1.f;return (int16_t)(v*32767.f);}
 static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(frames>128)frames=128;Synth*s=p;
@@ -83,7 +103,16 @@ static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(f
  for(int j=0;j<frames;j++){
  s->smooth_morph+=.0015f*((float)s->morph*.01f-s->smooth_morph);
  if(!s->freeze){s->slow_phase=wrap(s->slow_phase+(0.03f+.0008f*s->evolution)/SR);s->slow_secondary=wrap(s->slow_secondary+(.013f+.0002f*s->evolution)/SR);}
+ /* Advance bounded pseudo-random target every 1024 samples.
+  * Freeze holds both periodic and stochastic evolution. */
+ if(!s->freeze && (++s->tick>=1024)){
+  s->tick=0;
+  s->rng^=s->rng<<13;s->rng^=s->rng>>17;s->rng^=s->rng<<5;
+  s->random_target=((float)(s->rng&65535u)/32767.5f)-1.f;
+ }
+ if(!s->freeze)s->random_current+=.00012f*(s->random_target-s->random_current);
  float slow=sine(s->slow_phase),slow2=sine(s->slow_secondary);
+ float organic=s->random_current*((float)s->chaos*.01f)*(.25f+.75f*(float)s->evolution*.01f);
  float journey=s->smooth_morph*3.f;
  int ja=(int)journey;if(ja>2)ja=2;
  float jm=journey-(float)ja;if(jm>1.f)jm=1.f;
@@ -92,8 +121,8 @@ static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(f
  float l=0.f,r=0.f;
  for(int i=0;i<VOICES;i++){Voice*v=&s->voices[i];if(!v->active)continue;
  float hz=frequency(v->note);v->phase=wrap(v->phase+hz/SR);
- float x=world(wa,v->phase,slow,(float)s->chaos*.01f,(float)s->tone*.01f);
- float y=world(wb,v->phase,slow2,(float)s->chaos*.01f,(float)s->tone*.01f);
+ float x=world(wa,v->phase,slow,slow2,(float)s->chaos*.01f,(float)s->tone*.01f,organic);
+ float y=world(wb,v->phase,slow2,slow,(float)s->chaos*.01f,(float)s->tone*.01f,organic);
  float mixed=x+(y-x)*wm;
  float evolve=1.f+.06f*slow*((float)s->evolution*.01f);
  float gain=(float)s->level*.01f*.28f*v->velocity;
