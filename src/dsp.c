@@ -21,7 +21,7 @@ typedef struct {
 typedef struct {float phase,env,velocity;int note,active,held;} Voice;
 typedef struct {
  Voice voices[VOICES]; int world_a,world_b,morph,evolution,chaos,generation,space,tone,level;
- int freeze,mode,seed;float smooth_morph,slow_phase;uint32_t rng;
+ int freeze,mode,seed;float smooth_morph,slow_phase,slow_secondary;uint32_t rng;
 } Synth;
 typedef struct {int used;Synth synth;} Slot;
 static Slot slots[INSTANCES];
@@ -58,8 +58,8 @@ static void set(void*p,const char*k,const char*v){if(!p||!k||!v)return;Synth*s=p
  if(eq(k,"panic")){for(int i=0;i<VOICES;i++)s->voices[i].active=0;return;}
  for(unsigned i=0;i<sizeof(params)/sizeof(params[0]);i++)if(eq(k,params[i].name)){int x=clamp(num(v),0,params[i].max);*(int*)((char*)s+params[i].offset)=x;if(eq(k,"seed"))s->rng=(uint32_t)(x?x:1);return;}
 }
-static const char chain_params_json[]="[{\"key\":\"world_a\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":0},{\"key\":\"world_b\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":1},{\"key\":\"morph\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"evolution\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":25},{\"key\":\"chaos\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"generation\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"space\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"tone\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"level\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":60},{\"key\":\"freeze\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":0},{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"show_value\":false,\"extra_keys\":[\"voice_activity\"]},{\"key\":\"voice_activity\",\"type\":\"int\",\"min\":0,\"max\":4,\"access\":\"read\"}]";
-static const char ui_hierarchy_json[]="{\"levels\":{\"root\":{\"knobs\":[\"world_a\",\"world_b\",\"morph\",\"evolution\",\"chaos\",\"generation\",\"space\",\"level\"],\"params\":[{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"extra_keys\":[\"voice_activity\"]},\"world_a\",\"world_b\",\"morph\",\"evolution\",\"chaos\",\"generation\",\"space\",\"level\"]}}}";
+static const char chain_params_json[]="[{\"key\":\"world_a\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":0},{\"key\":\"world_b\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":1},{\"key\":\"mode\",\"type\":\"enum\",\"options\":[\"FREE PAIR\",\"JOURNEY\"],\"default\":0},{\"key\":\"morph\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"evolution\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":25},{\"key\":\"chaos\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"generation\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"space\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"tone\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"level\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":60},{\"key\":\"freeze\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":0},{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"show_value\":false,\"extra_keys\":[\"voice_activity\"]},{\"key\":\"voice_activity\",\"type\":\"int\",\"min\":0,\"max\":4,\"access\":\"read\"}]";
+static const char ui_hierarchy_json[]="{\"levels\":{\"root\":{\"knobs\":[\"world_a\",\"world_b\",\"mode\",\"morph\",\"evolution\",\"chaos\",\"generation\",\"level\"],\"params\":[{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"extra_keys\":[\"voice_activity\"]},\"world_a\",\"world_b\",\"mode\",\"morph\",\"evolution\",\"chaos\",\"generation\",\"space\",\"level\"]}}}";
 static int get(void*p,const char*k,char*b,int cap){
  if(eq(k,"chain_params"))return literal(b,cap,chain_params_json);
  if(eq(k,"ui_hierarchy"))return literal(b,cap,ui_hierarchy_json);
@@ -82,14 +82,19 @@ static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(f
  if(!s){for(int j=0;j<frames*2;j++)out[j]=0;return;}
  for(int j=0;j<frames;j++){
  s->smooth_morph+=.0015f*((float)s->morph*.01f-s->smooth_morph);
- if(!s->freeze)s->slow_phase=wrap(s->slow_phase+(0.03f+.0008f*s->evolution)/SR);
- float slow=sine(s->slow_phase);
+ if(!s->freeze){s->slow_phase=wrap(s->slow_phase+(0.03f+.0008f*s->evolution)/SR);s->slow_secondary=wrap(s->slow_secondary+(.013f+.0002f*s->evolution)/SR);}
+ float slow=sine(s->slow_phase),slow2=sine(s->slow_secondary);
+ float journey=s->smooth_morph*3.f;
+ int ja=(int)journey;if(ja>2)ja=2;
+ float jm=journey-(float)ja;if(jm>1.f)jm=1.f;
+ int wa=s->mode?ja:s->world_a,wb=s->mode?ja+1:s->world_b;
+ float wm=s->mode?jm:s->smooth_morph;
  float l=0.f,r=0.f;
  for(int i=0;i<VOICES;i++){Voice*v=&s->voices[i];if(!v->active)continue;
  float hz=frequency(v->note);v->phase=wrap(v->phase+hz/SR);
- float x=world(s->world_a,v->phase,slow,(float)s->chaos*.01f,(float)s->tone*.01f);
- float y=world(s->world_b,v->phase,slow,(float)s->chaos*.01f,(float)s->tone*.01f);
- float mixed=x+(y-x)*s->smooth_morph;
+ float x=world(wa,v->phase,slow,(float)s->chaos*.01f,(float)s->tone*.01f);
+ float y=world(wb,v->phase,slow2,(float)s->chaos*.01f,(float)s->tone*.01f);
+ float mixed=x+(y-x)*wm;
  float evolve=1.f+.06f*slow*((float)s->evolution*.01f);
  float gain=(float)s->level*.01f*.28f*v->velocity;
  float target=v->held?1.f:0.f;v->env+=(target-v->env)*(v->held?.002f:.0007f);
