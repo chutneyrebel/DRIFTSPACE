@@ -94,6 +94,35 @@ with tempfile.TemporaryDirectory() as d:
     setp('freeze',0)
     send(0x80,67,0)
     audio(160)
+    # WORLD 2.0: exercise the actual ABI, not just the isolated renderer.
+    setp('mode',3)
+    assert getp('mode')=='3'
+    setp('generation',60)
+    setp('evolution',90)
+    setp('chaos',60)
+    setp('morph',0)
+    setp('freeze',0)
+    world_fingerprints=[]
+    for w in range(4):
+        setp('world_a',w)
+        setp('world_b',w)
+        send(0x90,72,110)
+        samples=audio(24)
+        assert any(samples), ('WORLD 2.0 silent',w)
+        assert max(abs(x) for x in samples)<=32767
+        world_fingerprints.append(tuple(samples[::128]))
+        send(0x80,72,0)
+        audio(160)
+    assert len(set(world_fingerprints))==4, 'WORLD 2.0 worlds indistinguishable'
+    setp('world_a',0);setp('world_b',3);setp('morph',50)
+    send(0x90,72,110)
+    audio(24)
+    setp('freeze',1)
+    assert any(audio(24)), 'WORLD 2.0 FREEZE muted audio'
+    setp('freeze',0)
+    assert any(audio(24)), 'WORLD 2.0 freeze release muted audio'
+    send(0x80,72,0)
+    audio(160)
     setp('mode',0)
     assert getp('mode')=='0'
     setp('morph',999)
