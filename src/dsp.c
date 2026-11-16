@@ -44,6 +44,7 @@ static int literal(char*b,int cap,const char*s){int n=0;if(!b||cap<1)return -1;w
 static void reset(Synth*s){*s=(Synth){0};s->world_b=1;s->morph=50;s->smooth_morph=.5f;s->evolution=25;s->tone=50;s->level=60;s->seed=1;s->rng=1;}
 static void *create(const char*d,const char*j){(void)d;(void)j;for(int i=0;i<INSTANCES;i++){int z=0;if(__atomic_compare_exchange_n(&slots[i].used,&z,1,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE)){reset(&slots[i].synth);return &slots[i].synth;}}return 0;}
 static void destroy(void*p){for(int i=0;i<INSTANCES;i++)if(p==&slots[i].synth){__atomic_store_n(&slots[i].used,0,__ATOMIC_RELEASE);return;}}
+static float frequency(int n);
 static void midi(void*p,const uint8_t*m,int n,int source){if(!p||!m||n<3||source==5)return;Synth*s=p;int kind=m[0]&240;
  if(kind==176&&(m[1]==120||m[1]==123)){for(int i=0;i<VOICES;i++){s->voices[i].held=0;s->voices[i].active=0;}return;}
  if((kind!=144&&kind!=128)||m[1]>=128)return;
