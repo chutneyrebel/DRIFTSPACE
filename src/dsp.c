@@ -4,6 +4,7 @@
  * NOT hardware validated. */
 #include <stdint.h>
 #include <stddef.h>
+#include "coupled_core.h"
 #define SR 44100.f
 #define TAU 6.28318530718f
 #define VOICES 4
@@ -18,7 +19,7 @@ typedef struct {
  int (*get_error)(void *,char *,int);
  void (*render_block)(void *,int16_t *,int);
 } plugin_api_v2_t;
-typedef struct {float phase,env,velocity,generated_phase,generated_gain;int note,active,held;} Voice;
+typedef struct {float phase,env,velocity,generated_phase,generated_gain;int note,active,held;DSCoupled physical;} Voice;
 typedef struct {
  Voice voices[VOICES]; int world_a,world_b,morph,evolution,chaos,generation,space,tone,level;
  int freeze,mode,seed;float smooth_morph,slow_phase,slow_secondary,organic,random_target,random_current;uint32_t rng;unsigned tick,gen_tick;int gen_interval;float gen_gate;
@@ -49,16 +50,20 @@ static void midi(void*p,const uint8_t*m,int n,int source){if(!p||!m||n<3||source
  if(kind==144&&m[2]){
  int idx=-1;for(int i=0;i<VOICES;i++)if(!s->voices[i].active){idx=i;break;}if(idx<0)idx=0;
  s->voices[idx]=(Voice){0};s->voices[idx].active=1;s->voices[idx].held=1;s->voices[idx].note=m[1];s->voices[idx].velocity=(float)m[2]/127.f;
+ ds_coupled_init(&s->voices[idx].physical,frequency(s->voices[idx].note));
+ ds_coupled_strike(&s->voices[idx].physical,s->voices[idx].velocity);
  }else for(int i=0;i<VOICES;i++)if(s->voices[i].active&&s->voices[i].note==m[1])s->voices[i].held=0;
 }
 typedef struct{const char*name;int max;size_t offset;} Param;
 #define P(n,maxv) {#n,maxv,offsetof(Synth,n)}
-static const Param params[]={P(world_a,3),P(world_b,3),P(morph,100),P(evolution,100),P(chaos,100),P(generation,100),P(space,100),P(tone,100),P(level,100),P(freeze,1),P(mode,1),P(seed,999999)};
+static const Param params[]={P(world_a,3),P(world_b,3),P(morph,100),P(evolution,100),P(chaos,100),P(generation,100),P(space,100),P(tone,100),P(level,100),P(freeze,1),P(mode,2),P(seed,999999)};
 static void set(void*p,const char*k,const char*v){if(!p||!k||!v)return;Synth*s=p;
  if(eq(k,"panic")){for(int i=0;i<VOICES;i++)s->voices[i].active=0;return;}
- for(unsigned i=0;i<sizeof(params)/sizeof(params[0]);i++)if(eq(k,params[i].name)){int x=clamp(num(v),0,params[i].max);*(int*)((char*)s+params[i].offset)=x;if(eq(k,"seed"))s->rng=(uint32_t)(x?x:1);return;}
+ for(unsigned i=0;i<sizeof(params)/sizeof(params[0]);i++)if(eq(k,params[i].name)){int x=clamp(num(v),0,params[i].max);*(int*)((char*)s+params[i].offset)=x;if(eq(k,"seed"))s->rng=(uint32_t)(x?x:1);
+ if(eq(k,"mode")&&x==2){for(int j=0;j<VOICES;j++)if(s->voices[j].active){ds_coupled_init(&s->voices[j].physical,frequency(s->voices[j].note));ds_coupled_strike(&s->voices[j].physical,s->voices[j].velocity);}}
+ return;}
 }
-static const char chain_params_json[]="[{\"key\":\"world_a\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":0},{\"key\":\"world_b\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":1},{\"key\":\"mode\",\"type\":\"enum\",\"options\":[\"FREE PAIR\",\"JOURNEY\"],\"default\":0},{\"key\":\"morph\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"evolution\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":25},{\"key\":\"chaos\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"generation\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"space\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"tone\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"level\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":60},{\"key\":\"freeze\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":0},{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"show_value\":false,\"extra_keys\":[\"voice_activity\"]},{\"key\":\"voice_activity\",\"type\":\"int\",\"min\":0,\"max\":4,\"access\":\"read\"}]";
+static const char chain_params_json[]="[{\"key\":\"world_a\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":0},{\"key\":\"world_b\",\"type\":\"enum\",\"options\":[\"FLUID\",\"ORGANISM\",\"DRIFTSPACE\",\"BLOOM\"],\"default\":1},{\"key\":\"mode\",\"type\":\"enum\",\"options\":[\"FREE PAIR\",\"JOURNEY\",\"PHYSICS\"],\"default\":0},{\"key\":\"morph\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"evolution\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":25},{\"key\":\"chaos\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"generation\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"space\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":0},{\"key\":\"tone\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":50},{\"key\":\"level\",\"type\":\"int\",\"min\":0,\"max\":100,\"default\":60},{\"key\":\"freeze\",\"type\":\"enum\",\"options\":[\"Off\",\"On\"],\"default\":0},{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"show_value\":false,\"extra_keys\":[\"voice_activity\"]},{\"key\":\"voice_activity\",\"type\":\"int\",\"min\":0,\"max\":4,\"access\":\"read\"}]";
 static const char ui_hierarchy_json[]="{\"levels\":{\"root\":{\"knobs\":[\"world_a\",\"world_b\",\"mode\",\"morph\",\"evolution\",\"chaos\",\"generation\",\"level\"],\"params\":[{\"key\":\"face\",\"type\":\"canvas\",\"canvas_script\":\"canvas.js\",\"canvas_overlay\":\"driftspace_main\",\"as_page\":true,\"page_first\":true,\"extra_keys\":[\"voice_activity\"]},{\"level\":\"sculpt\"},{\"level\":\"motion\"}]},\"sculpt\":{\"knobs\":[\"world_a\",\"world_b\",\"morph\",\"tone\",\"space\",\"level\",\"chaos\",\"generation\"],\"params\":[\"world_a\",\"world_b\",\"morph\",\"tone\",\"space\",\"level\",\"chaos\",\"generation\"]},\"motion\":{\"knobs\":[\"evolution\",\"chaos\",\"generation\",\"freeze\",\"space\",\"tone\",\"morph\",\"level\"],\"params\":[\"evolution\",\"chaos\",\"generation\",\"freeze\",\"space\",\"tone\",\"morph\",\"level\"]}}}";
 static int get(void*p,const char*k,char*b,int cap){
  if(eq(k,"chain_params"))return literal(b,cap,chain_params_json);
@@ -100,6 +105,7 @@ static float world(int w,float ph,float slow,float slow2,float chaos,float tone,
 static int16_t pcm(float v){if(v>1.f)v=1.f;if(v< -1.f)v=-1.f;return (int16_t)(v*32767.f);}
 static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(frames>128)frames=128;Synth*s=p;
  if(!s){for(int j=0;j<frames*2;j++)out[j]=0;return;}
+ if(s->mode==2){for(int i=0;i<VOICES;i++)if(s->voices[i].active)ds_coupled_controls(&s->voices[i].physical,(float)s->evolution*.01f,(float)s->chaos*.01f,(float)s->tone*.01f,(float)s->generation*.01f);}
  for(int j=0;j<frames;j++){
  s->smooth_morph+=.004f*((float)s->morph*.01f-s->smooth_morph);
  if(!s->freeze){s->slow_phase=wrap(s->slow_phase+(0.03f+.0008f*s->evolution)/SR);s->slow_secondary=wrap(s->slow_secondary+(.013f+.0002f*s->evolution)/SR);}
@@ -131,6 +137,16 @@ static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(f
  float wm=s->mode?jm:s->smooth_morph;
  float l=0.f,r=0.f;
  for(int i=0;i<VOICES;i++){Voice*v=&s->voices[i];if(!v->active)continue;
+ if(s->mode==2){
+  float target=v->held?1.f:0.f;
+  v->env+=(target-v->env)*(v->held?.002f:.0007f);
+  if(!v->held&&v->env<.0005f){v->active=0;continue;}
+  v->physical.physics.frozen=s->freeze;
+  float physical=ds_coupled_tick(&v->physical);
+  float gain=(float)s->level*.01f*.7f*v->env;
+  l+=physical*gain;r+=physical*gain;
+  continue;
+ }
  float hz=frequency(v->note);v->phase=wrap(v->phase+hz/SR);
  float x=world(wa,v->phase,slow,slow2,(float)s->chaos*.01f,(float)s->tone*.01f,organic);
  float y=world(wb,v->phase,slow2,slow,(float)s->chaos*.01f,(float)s->tone*.01f,organic);
