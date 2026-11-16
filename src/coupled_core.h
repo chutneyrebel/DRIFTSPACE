@@ -11,16 +11,35 @@ typedef struct {
  float last_velocity[2];
  unsigned accumulator;
  float pickup[2];
+ float tension, coupling, damping, energy;
+ float base_hz;
 } DSCoupled;
 static void ds_coupled_init(DSCoupled *s,float hz){
  *s=(DSCoupled){0};
  ds_physics_init(&s->physics);
+ s->base_hz=hz;
+ s->tension=.5f;s->coupling=.5f;s->damping=.5f;s->energy=.5f;
  ds_modal_init(&s->resonator[0],hz,0);
  ds_modal_init(&s->resonator[1],hz*1.17f,1);
+ s->physics.stiffness=37.5f;s->physics.coupling=12.5f;s->physics.damping=3.65f;
+}
+static void ds_coupled_controls(DSCoupled *s,float tension,float coupling,float damping,float energy){
+ s->tension=ds_modal_clip(tension,1.f);
+ s->coupling=ds_modal_clip(coupling,1.f);
+ s->damping=ds_modal_clip(damping,1.f);
+ s->energy=ds_modal_clip(energy,1.f);
+ if(s->tension<0.f)s->tension=0.f;
+ if(s->coupling<0.f)s->coupling=0.f;
+ if(s->damping<0.f)s->damping=0.f;
+ if(s->energy<0.f)s->energy=0.f;
+ s->physics.stiffness=5.f+65.f*s->tension;
+ s->physics.coupling=25.f*s->coupling;
+ s->physics.damping=.15f+7.f*s->damping;
 }
 static void ds_coupled_strike(DSCoupled *s,float velocity){
- ds_physics_strike(&s->physics,velocity);
- ds_modal_strike(&s->resonator[0],velocity*.6f);
+ float impulse=velocity*(.15f+.85f*s->energy);
+ ds_physics_strike(&s->physics,impulse);
+ ds_modal_strike(&s->resonator[0],impulse*.6f);
 }
 static float ds_coupled_tick(DSCoupled *s){
  /* 44.1 kHz audio, 200 Hz physics; carry fractional samples precisely. */
@@ -34,8 +53,8 @@ static float ds_coupled_tick(DSCoupled *s){
    float delta1=ds_modal_abs(s->physics.v[1]-old1);
    /* Coupled physical acceleration excites resonators, never direct
       audio feedback; limiting prevents self-sustaining overload. */
-   float drive0=ds_modal_clip(delta0*.015f,0.04f);
-   float drive1=ds_modal_clip(delta1*.025f,0.04f);
+   float drive0=ds_modal_clip(delta0*.015f*(.25f+s->energy),0.04f);
+   float drive1=ds_modal_clip(delta1*.025f*(.25f+s->energy),0.04f);
    if(drive0>.0001f)ds_modal_strike(&s->resonator[0],drive0);
    if(drive1>.0001f)ds_modal_strike(&s->resonator[1],drive1);
   }
