@@ -19,6 +19,7 @@ jobs:
       - run: python3 tests/test_controls.py
       - run: python3 tests/test_retuning.py
       - run: python3 tests/test_world_exchange.py
+      - run: python3 tests/test_world_spectrum.py
   canvas:
     runs-on: ubuntu-latest
     steps:
