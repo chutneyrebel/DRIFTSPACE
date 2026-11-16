@@ -16,6 +16,7 @@ jobs:
       - run: python3 tests/test_modal.py
       - run: python3 tests/test_coupled.py
       - run: python3 tests/test_controls.py
+      - run: python3 tests/test_retuning.py
   canvas:
     runs-on: ubuntu-latest
     steps:
