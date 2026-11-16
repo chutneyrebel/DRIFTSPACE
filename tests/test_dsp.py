@@ -83,6 +83,17 @@ with tempfile.TemporaryDirectory() as d:
         samples=audio(8)
         assert any(samples)
         assert max(abs(x) for x in samples)<=32767
+    setp('mode',2)
+    assert getp('mode')=='2'
+    send(0x90,67,110)
+    physics_samples=audio(32)
+    assert any(physics_samples), 'physics mode should produce sound'
+    assert max(abs(x) for x in physics_samples)<=32767
+    setp('freeze',1)
+    assert any(audio(8)), 'frozen physics should retain resonator audio tail'
+    setp('freeze',0)
+    send(0x80,67,0)
+    audio(160)
     setp('mode',0)
     assert getp('mode')=='0'
     setp('morph',999)
