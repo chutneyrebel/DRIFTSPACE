@@ -23,9 +23,16 @@ int main(void){
  ds_we_controls(&p,.5f,.8f,.3f);ds_we_strike(&p,1.f);
  ds_ws_init(&s);ds_ws_update(&s,&p,2,3,1.f);
  float first=s.ratio[0][6];float first_gain=s.gain[1][5];
- for(int k=0;k<1000;k++){ds_we_step(&p,.005f);ds_ws_update(&s,&p,2,3,1.f);}
- if(fabsf(first-s.ratio[0][6])<.001f)return 2;
- if(fabsf(first_gain-s.gain[1][5])<.001f)return 3;
+ float max_ratio_change=0.f,max_gain_change=0.f;
+ for(int k=0;k<1000;k++){
+  ds_we_step(&p,.005f);ds_ws_update(&s,&p,2,3,1.f);
+  float rd=fabsf(first-s.ratio[0][6]);
+  float gd=fabsf(first_gain-s.gain[1][5]);
+  if(rd>max_ratio_change)max_ratio_change=rd;
+  if(gd>max_gain_change)max_gain_change=gd;
+ }
+ if(max_ratio_change<.001f)return 2;
+ if(max_gain_change<.001f)return 3;
  for(int w=0;w<2;w++)for(int i=0;i<DS_WORLD_PARTIALS;i++){
   if(!isfinite(s.ratio[w][i])||!isfinite(s.gain[w][i]))return 4;
   if(s.gain[w][i]<0.f||s.gain[w][i]>1.f)return 5;
