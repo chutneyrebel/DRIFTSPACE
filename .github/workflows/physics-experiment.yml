@@ -1,0 +1,29 @@
+name: Physics engine experimental CI
+on:
+  push:
+    branches:
+      - experiment/physics-engine
+  pull_request:
+    branches:
+      - main
+jobs:
+  host-dsp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tests/test_dsp.py
+  canvas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node tests/test_canvas.cjs
+  aarch64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang lld binutils
+      - run: bash scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: driftspace-physics-baseline
+          path: dist/driftspace-module.tar.gz
