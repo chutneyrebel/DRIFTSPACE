@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - experiment/physics-engine
+      - development/driftspace-2-physical-worlds
   pull_request:
     branches:
       - main
