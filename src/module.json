@@ -38,7 +38,8 @@
         "type": "enum",
         "options": [
           "FREE PAIR",
-          "JOURNEY"
+          "JOURNEY",
+          "PHYSICS"
         ],
         "default": 0
       },
