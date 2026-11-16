@@ -13,11 +13,13 @@ typedef struct {
  float pickup[2];
  float tension, coupling, damping, energy;
  float base_hz;
+ float tuned_hz;
 } DSCoupled;
 static void ds_coupled_init(DSCoupled *s,float hz){
  *s=(DSCoupled){0};
  ds_physics_init(&s->physics);
  s->base_hz=hz;
+ s->tuned_hz=hz;
  s->tension=.5f;s->coupling=.5f;s->damping=.5f;s->energy=.5f;
  ds_modal_init(&s->resonator[0],hz,0);
  ds_modal_init(&s->resonator[1],hz*1.17f,1);
@@ -35,6 +37,14 @@ static void ds_coupled_controls(DSCoupled *s,float tension,float coupling,float 
  s->physics.stiffness=5.f+65.f*s->tension;
  s->physics.coupling=25.f*s->coupling;
  s->physics.damping=.15f+7.f*s->damping;
+ /* Retune only on control changes, never in the per-sample callback.
+    Resetting modal histories avoids unstable state/coeff mismatches. */
+ float target=s->base_hz*(.75f+.5f*s->tension);
+ if(ds_modal_abs(target-s->tuned_hz)>.01f){
+  ds_modal_init(&s->resonator[0],target,0);
+  ds_modal_init(&s->resonator[1],target*(1.05f+.24f*s->coupling),1);
+  s->tuned_hz=target;
+ }
 }
 static void ds_coupled_strike(DSCoupled *s,float velocity){
  float impulse=velocity*(.15f+.85f*s->energy);
