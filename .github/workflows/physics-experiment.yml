@@ -21,6 +21,7 @@ jobs:
       - run: python3 tests/test_world_exchange.py
       - run: python3 tests/test_world_spectrum.py
       - run: python3 tests/test_world_render.py
+      - run: python3 tests/test_world_freeze.py
   canvas:
     runs-on: ubuntu-latest
     steps:
