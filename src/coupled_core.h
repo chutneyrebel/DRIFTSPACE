@@ -14,12 +14,14 @@ typedef struct {
  float tension, coupling, damping, energy;
  float base_hz;
  float tuned_hz;
+ float tuned_coupling;
 } DSCoupled;
 static void ds_coupled_init(DSCoupled *s,float hz){
  *s=(DSCoupled){0};
  ds_physics_init(&s->physics);
  s->base_hz=hz;
  s->tuned_hz=hz;
+ s->tuned_coupling=.5f;
  s->tension=.5f;s->coupling=.5f;s->damping=.5f;s->energy=.5f;
  ds_modal_init(&s->resonator[0],hz,0);
  ds_modal_init(&s->resonator[1],hz*1.17f,1);
@@ -37,13 +39,20 @@ static void ds_coupled_controls(DSCoupled *s,float tension,float coupling,float 
  s->physics.stiffness=5.f+65.f*s->tension;
  s->physics.coupling=25.f*s->coupling;
  s->physics.damping=.15f+7.f*s->damping;
- /* Retune only on control changes, never in the per-sample callback.
-    Resetting modal histories avoids unstable state/coeff mismatches. */
+ /* Update modal coefficients at control rate while retaining resonator
+    histories, so changing TENSION or COUPLING does not erase the tail. */
  float target=s->base_hz*(.75f+.5f*s->tension);
- if(ds_modal_abs(target-s->tuned_hz)>.01f){
-  ds_modal_init(&s->resonator[0],target,0);
-  ds_modal_init(&s->resonator[1],target*(1.05f+.24f*s->coupling),1);
+ if(ds_modal_abs(target-s->tuned_hz)>.01f ||
+    ds_modal_abs(s->coupling-s->tuned_coupling)>.0001f){
+  DSModal a,b;
+  ds_modal_init(&a,target,0);
+  ds_modal_init(&b,target*(1.05f+.24f*s->coupling),1);
+  for(int i=0;i<DS_MODAL_MODES;i++){
+   s->resonator[0].coeff[i]=a.coeff[i];
+   s->resonator[1].coeff[i]=b.coeff[i];
+  }
   s->tuned_hz=target;
+  s->tuned_coupling=s->coupling;
  }
 }
 static void ds_coupled_strike(DSCoupled *s,float velocity){
