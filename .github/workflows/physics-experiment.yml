@@ -14,6 +14,7 @@ jobs:
       - run: python3 tests/test_dsp.py
       - run: python3 tests/test_physics.py
       - run: python3 tests/test_modal.py
+      - run: python3 tests/test_coupled.py
   canvas:
     runs-on: ubuntu-latest
     steps:
