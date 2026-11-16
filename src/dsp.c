@@ -5,6 +5,15 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "coupled_core.h"
+/* Freestanding ARM64: compiler may lower large zero-initializers to memset.
+ * Volatile byte stores prevent this fallback implementation being optimized
+ * into a recursive memset call. No libc dependency. */
+void *memset(void *dst,int value,size_t length){
+ volatile unsigned char *p=(volatile unsigned char *)dst;
+ for(size_t i=0;i<length;i++)p[i]=(unsigned char)value;
+ return dst;
+}
+
 #define SR 44100.f
 #define TAU 6.28318530718f
 #define VOICES 4
