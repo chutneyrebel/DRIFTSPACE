@@ -42,7 +42,13 @@ static void ds_ws_update(DSWorldSpectrum *s,const DSWorldExchange *p,int world_a
    if(kind==0)base*=1.f-.45f*index;
    if(kind==1)base*=.6f+.4f*ds_ws_abs(p->v[w]);
    if(kind==2)base*=.65f+.45f*index;
-   if(kind==3)base*=.3f+.9f*ds_we_clip(s->growth[w]*2.f-index*.6f,0.f,1.f);
+   if(kind==3){
+    /* Bloom retains a slow spectral growth cycle even after the initial
+       physical impulse fades. Physical energy still shapes the envelope. */
+    float cycle=s->phase[w]<.5f?s->phase[w]*2.f:(1.f-s->phase[w])*2.f;
+    float opening=ds_we_clip(.15f+.65f*cycle+.35f*s->growth[w]-index*.45f,0.f,1.f);
+    base*=.2f+.8f*opening;
+   }
    s->gain[w][i]=ds_we_clip(base,0.f,1.f);
   }
  }
