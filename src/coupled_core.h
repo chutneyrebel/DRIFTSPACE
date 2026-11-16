@@ -9,7 +9,7 @@ typedef struct {
  DSPhysics physics;
  DSModal resonator[2];
  float last_velocity[2];
- float accumulator;
+ unsigned accumulator;
  float pickup[2];
 } DSCoupled;
 static void ds_coupled_init(DSCoupled *s,float hz){
@@ -24,9 +24,9 @@ static void ds_coupled_strike(DSCoupled *s,float velocity){
 }
 static float ds_coupled_tick(DSCoupled *s){
  /* 44.1 kHz audio, 200 Hz physics; carry fractional samples precisely. */
- s->accumulator+=200.f/44100.f;
- if(s->accumulator>=1.f){
-  s->accumulator-=1.f;
+ s->accumulator+=200u;
+ if(s->accumulator>=44100u){
+  s->accumulator-=44100u;
   float old0=s->physics.v[0],old1=s->physics.v[1];
   ds_physics_step(&s->physics,.005f);
   if(!s->physics.frozen){
