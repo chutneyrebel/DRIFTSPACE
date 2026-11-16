@@ -10,6 +10,7 @@ src=r"""
 int main(void){
  DSCoupled s,t;ds_coupled_init(&s,110.f);ds_coupled_init(&t,110.f);
  for(int i=0;i<512;i++)if(ds_coupled_tick(&s)!=0.f)return 1;
+ ds_coupled_init(&s,110.f);
  ds_coupled_strike(&s,.8f);ds_coupled_strike(&t,.8f);
  float first=0.f,second=0.f;
  for(int i=0;i<44100;i++){
