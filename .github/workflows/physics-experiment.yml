@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 tests/test_dsp.py
+      - run: python3 tests/test_physics.py
   canvas:
     runs-on: ubuntu-latest
     steps:
