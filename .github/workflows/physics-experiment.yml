@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 tests/test_dsp.py
       - run: python3 tests/test_physics.py
+      - run: python3 tests/test_modal.py
   canvas:
     runs-on: ubuntu-latest
     steps:
