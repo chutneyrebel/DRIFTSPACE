@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "coupled_core.h"
+#include "world_render.h"
 /* Freestanding ARM64: compiler may lower large zero-initializers to memset.
  * Volatile byte stores prevent this fallback implementation being optimized
  * into a recursive memset call. No libc dependency. */
@@ -28,7 +29,7 @@ typedef struct {
  int (*get_error)(void *,char *,int);
  void (*render_block)(void *,int16_t *,int);
 } plugin_api_v2_t;
-typedef struct {float phase,env,velocity,generated_phase,generated_gain;int note,active,held;DSCoupled physical;} Voice;
+typedef struct {float phase,env,velocity,generated_phase,generated_gain;int note,active,held;DSCoupled physical;DSWorldRender world_render;} Voice;
 typedef struct {
  Voice voices[VOICES]; int world_a,world_b,morph,evolution,chaos,generation,space,tone,level;
  int freeze,mode,seed;float smooth_morph,slow_phase,slow_secondary,organic,random_target,random_current;uint32_t rng;unsigned tick,gen_tick;int gen_interval;float gen_gate;
@@ -62,11 +63,14 @@ static void midi(void*p,const uint8_t*m,int n,int source){if(!p||!m||n<3||source
  s->voices[idx]=(Voice){0};s->voices[idx].active=1;s->voices[idx].held=1;s->voices[idx].note=m[1];s->voices[idx].velocity=(float)m[2]/127.f;
  ds_coupled_init(&s->voices[idx].physical,frequency(s->voices[idx].note));
  ds_coupled_strike(&s->voices[idx].physical,s->voices[idx].velocity);
+ ds_wr_init(&s->voices[idx].world_render,frequency(s->voices[idx].note),s->world_a,s->world_b);
+ ds_we_controls(&s->voices[idx].world_render.exchange,(float)s->morph*.01f,(float)s->chaos*.01f,0.f);
+ ds_wr_note(&s->voices[idx].world_render,s->voices[idx].velocity);
  }else for(int i=0;i<VOICES;i++)if(s->voices[i].active&&s->voices[i].note==m[1])s->voices[i].held=0;
 }
 typedef struct{const char*name;int max;size_t offset;} Param;
 #define P(n,maxv) {#n,maxv,offsetof(Synth,n)}
-static const Param params[]={P(world_a,3),P(world_b,3),P(morph,100),P(evolution,100),P(chaos,100),P(generation,100),P(space,100),P(tone,100),P(level,100),P(freeze,1),P(mode,2),P(seed,999999)};
+static const Param params[]={P(world_a,3),P(world_b,3),P(morph,100),P(evolution,100),P(chaos,100),P(generation,100),P(space,100),P(tone,100),P(level,100),P(freeze,1),P(mode,3),P(seed,999999)};
 static void set(void*p,const char*k,const char*v){if(!p||!k||!v)return;Synth*s=p;
  if(eq(k,"panic")){for(int i=0;i<VOICES;i++)s->voices[i].active=0;return;}
  for(unsigned i=0;i<sizeof(params)/sizeof(params[0]);i++)if(eq(k,params[i].name)){int x=clamp(num(v),0,params[i].max);*(int*)((char*)s+params[i].offset)=x;if(eq(k,"seed"))s->rng=(uint32_t)(x?x:1);
@@ -147,6 +151,21 @@ static void render(void*p,int16_t*out,int frames){if(!out||frames<=0)return;if(f
  float wm=s->mode?jm:s->smooth_morph;
  float l=0.f,r=0.f;
  for(int i=0;i<VOICES;i++){Voice*v=&s->voices[i];if(!v->active)continue;
+ if(s->mode==3){
+  float target=v->held?1.f:0.f;
+  v->env+=(target-v->env)*(v->held?.002f:.0007f);
+  if(!v->held&&v->env<.0005f){v->active=0;continue;}
+  DSWorldRender *wr=&v->world_render;
+  wr->world[0]=s->world_a;wr->world[1]=s->world_b;
+  ds_we_controls(&wr->exchange,(float)s->morph*.01f,(float)s->chaos*.01f,(float)s->generation*.01f);
+  ds_wr_freeze(wr,s->freeze);
+  float sample=ds_wr_sample(wr,SR,(float)s->evolution*.01f);
+  float gain=(float)s->level*.01f*v->env*v->velocity;
+  float width=(float)s->space*.01f;
+  l+=sample*gain*(1.f-.35f*width);
+  r+=sample*gain*(1.f+.35f*width);
+  continue;
+ }
  if(s->mode==2){
   float target=v->held?1.f:0.f;
   v->env+=(target-v->env)*(v->held?.002f:.0007f);
