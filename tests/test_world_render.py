@@ -10,6 +10,9 @@ src=r"""
 #define N 22050
 static float audio[4][N];
 int main(void){
+ /* Phase-wrap continuity: zero crossing must not jump. */
+ if(fabsf(ds_wr_sine(0.f)-ds_wr_sine(6.2831853f-0.00001f))>.001f)return 5;
+ if(fabsf(ds_wr_sine(3.14159265f))>.001f)return 6;
  for(int w=0;w<4;w++){
   DSWorldRender r;ds_wr_init(&r,110.f,w,w);
   ds_we_controls(&r.exchange,0.f,.75f,0.f);
