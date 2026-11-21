@@ -1,5 +1,5 @@
 /* DRIFTSPACE 2.0 experimental world renderer.
- * Host-only proof of concept, not connected to the Schwung ABI.
+ * Used by the Schwung ABI's WORLD 2.0 mode.
  * Eight modal oscillators per world, phase continuous and gain smoothed.
  */
 #ifndef DS_WORLD_RENDER_H
@@ -19,15 +19,20 @@ typedef struct {
  int freeze_enabled;
 } DSWorldRender;
 static float ds_wr_sine(float x){
- /* Periodic odd polynomial approximation, bounded for normalized phase. */
- while(x>3.14159265f)x-=6.2831853f;
- while(x< -3.14159265f)x+=6.2831853f;
- float x2=x*x;
- return x*(1.f-x2/6.f+x2*x2/120.f-x2*x2*x2/5040.f);
+ /* Continuous, bounded rational sine approximation, zero at phase wrap.
+    Unlike a truncated Taylor series, it does not jump at +/-pi. */
+ const float pi=3.14159265359f, tau=6.28318530718f;
+ while(x>=tau)x-=tau;
+ while(x<0.f)x+=tau;
+ float sign=1.f;
+ if(x>pi){x-=pi;sign=-1.f;}
+ float y=x*(pi-x);
+ return sign*(16.f*y)/(5.f*pi*pi-4.f*y);
 }
 static void ds_wr_init(DSWorldRender *s,float frequency,int a,int b){
  *s=(DSWorldRender){0};
  ds_we_init(&s->exchange);ds_ws_init(&s->spectrum);
+ ds_ws_update(&s->spectrum,&s->exchange,a,b,0.f);
  s->frequency=ds_we_clip(frequency,20.f,1000.f);
  s->world[0]=a;s->world[1]=b;s->level=.15f;
 }
@@ -58,6 +63,8 @@ static float ds_wr_sample(DSWorldRender *s,float sample_rate,float evolution){
   for(int i=0;i<DS_WORLD_PARTIALS;i++){
    float ratio=s->spectrum.ratio[w][i]*(1.f-s->freeze_blend)+s->frozen_ratio[w][i]*s->freeze_blend;
    float freq=s->frequency*ratio;
+   /* Do not synthesize partials above Nyquist. */
+   if(freq>=sample_rate*.48f)continue;
    float delta=6.2831853f*freq/sample_rate;
    s->phase[w][i]+=delta;
    if(s->phase[w][i]>=6.2831853f)s->phase[w][i]-=6.2831853f;
